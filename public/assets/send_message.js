@@ -142,20 +142,33 @@ submitButton.addEventListener('click', async function (e) {
     submitButton.disabled = true;
 
     try {
+        const payload = new URLSearchParams({
+            _token: csrfToken,
+            receiver_id: receiverIdInput.value,
+            message: message,
+        });
+
         const response = await fetch('/chat/send', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
                 'Accept': 'application/json',
             },
-            body: JSON.stringify({
-                receiver_id: receiverIdInput.value,
-                message: message,
-            }),
+            body: payload,
         });
 
-        const data = await response.json();
+        const rawText = await response.text();
+        console.log('Send response status:', response.status);
+        console.log('Send response headers content-type:', response.headers.get('content-type'));
+        console.log('Send response body:', rawText);
+
+        let data = null;
+
+        try {
+            data = rawText ? JSON.parse(rawText) : null;
+        } catch (parseError) {
+            console.error('Failed to parse send response as JSON:', parseError);
+            throw new Error(`Non-JSON response: ${response.status}`);
+        }
 
         if (!response.ok || !data.success) {
             pendingMessageElement.remove();
@@ -163,6 +176,7 @@ submitButton.addEventListener('click', async function (e) {
             return;
         }
     } catch (error) {
+        console.error('Send message request failed:', error);
         pendingMessageElement.remove();
         alert('Something went wrong while sending the message.');
     } finally {
